@@ -111,11 +111,8 @@ public class GameMap {
 public void writeToFile(String filename){
         String currentDir = System.getProperty("user.dir");
         
-        // Create the full path to resources
         String fullPath = currentDir + "/src/main/resources/" + filename;
         
-        // Print for debugging
-        System.out.println("Saving to: " + fullPath);
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(fullPath))) {
                 char[][] grid = new char[gridHeight][gridWidth];
 
