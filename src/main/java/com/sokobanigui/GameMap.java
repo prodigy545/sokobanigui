@@ -1,7 +1,9 @@
 package com.sokobanigui;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -24,43 +26,144 @@ public class GameMap {
         dynamiGameObjects = new ArrayList<>();
     }
 
-    public void loadFromFile(String filename) {
+   public void loadFromFile(String filename) {
+    InputStream inputStream = getClass().getClassLoader().getResourceAsStream(filename);
 
-        InputStream inputStream = getClass().getClassLoader().getResourceAsStream(filename);
 
-        if(inputStream == null){
-            System.out.println("Could not find this spesific filename" + filename + "Using the default level");
-            createDefaultLevel();
-            return;
+    if(inputStream == null) {
+        System.err.println("error Could not find file: " + filename);
+        System.out.println("Loading default level...");
+        createDefaultLevel();
+        return;
+    }
+
+    try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+        List<String> lines = new ArrayList<>();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            lines.add(line);
         }
+        
+        int expectedWidth = lines.get(0).length();
+        int playerCount = 0;
+        
+        for (int y = 0; y < lines.size(); y++) {
+            String currentLine = lines.get(y);
+            
+            if (currentLine.length() != expectedWidth) {
+                throw new InvalidLevelFormatException(
+                    "Line has diff width", y + 1, 0);
+            }
+            
+            for (int x = 0; x < currentLine.length(); x++) {
+                char c = currentLine.charAt(x);
+                
+                if (c == 'P') {
+                    playerCount++;
+                }
+                else if (c != '#' && c != 'T' && c != 'B' && c != ' ') {
+                    throw new InvalidLevelFormatException(
+                        "Invalid character '" + c + "'", y + 1, x + 1);
+                }
+            }
+        }
+        
+        if (playerCount != 1) {
+            throw new InvalidLevelFormatException(
+                "Must have exactly one player");
+        }
+        
+        staticGameObjects.clear();
+        dynamiGameObjects.clear();
+        
+        int y = 0;
+        for (String l : lines) {
+            for (int x = 0; x < l.length(); x++) {
+                char c = l.charAt(x);
+                Position pos = new Position(x, y);
+                switch (c) {
+                    case '#': staticGameObjects.add(new Wall(pos)); break;
+                    case 'P': 
+                        player = new Player(pos, l.length(), lines.size()); 
+                        dynamiGameObjects.add(player); 
+                        break;
+                    case 'B': dynamiGameObjects.add(new Boxes(pos)); break;
+                    case 'T': staticGameObjects.add(new Targets(pos)); break;
+                }
+            }
+            y++;
+            gridWidth = l.length();
+        }
+        gridHeight = y;
+        
+    } catch (IOException e) {
+        System.err.println("ERROR reading file: " + e.getMessage());
+        System.out.println("Loading default level...");
+        createDefaultLevel();
+    } catch (InvalidLevelFormatException e) {
+        System.err.println("ERROR: " + e.getMessage());
+        System.out.println("Loading default level...");
+        createDefaultLevel();
+    }
+}
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-            String line;
-            int y = 0;
-            while ((line = reader.readLine()) != null) {
-                for (int x = 0; x < line.length(); x++) {
-                    char c = line.charAt(x);
-                    Position pos = new Position(x, y);
-                    switch (c) {
-                        case '#': staticGameObjects.add(new Wall(pos)); break;
-                        case 'P': 
-                            player = new Player(pos, line.length(), 100); 
-                            dynamiGameObjects.add(player); 
-                            break;
-                        case 'B': dynamiGameObjects.add(new Boxes(pos)); break;
-                        case 'T': staticGameObjects.add(new Targets(pos)); break;
+
+public void writeToFile(String filename){
+        String currentDir = System.getProperty("user.dir");
+        
+        // Create the full path to resources
+        String fullPath = currentDir + "/src/main/resources/" + filename;
+        
+        // Print for debugging
+        System.out.println("Saving to: " + fullPath);
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(fullPath))) {
+                char[][] grid = new char[gridHeight][gridWidth];
+
+                for (int y = 0; y<gridHeight; y++){
+                    for(int x = 0; x<gridWidth; x++){
+                        grid[y][x] = '.';
                     }
                 }
-                y++;
-                gridWidth = line.length();
+    
+
+       for (GameObjects obj : staticGameObjects) {
+            int x = obj.getPosition().getPositionX();
+            int y = obj.getPosition().getPositionY();
+            if (obj instanceof Wall) {
+                grid[y][x] = '#';
+            } else if (obj instanceof Targets) {
+                grid[y][x] = 'T';
             }
-            gridHeight = y;
-            reader.close();
-        } catch (IOException e) {
-            System.out.println("Loadig default level....");
-            createDefaultLevel();
         }
+        
+        // Step 4: Draw boxes
+        for (GameObjects obj : dynamiGameObjects) {
+            if (obj instanceof Boxes) {
+                int x = obj.getPosition().getPositionX();
+                int y = obj.getPosition().getPositionY();
+                grid[y][x] = 'B';
+            }
+        }
+        
+        // Step 5: Draw player
+        if (player != null) {
+            int x = player.getPosition().getPositionX();
+            int y = player.getPosition().getPositionY();
+            grid[y][x] = 'P';
+        }
+        
+        // Step 6: Write grid to file
+        for (int y = 0; y < gridHeight; y++) {
+            for (int x = 0; x < gridWidth; x++) {
+                writer.write(grid[y][x]);
+            }
+            writer.newLine();
+        }
+        
+     }  catch (IOException e) {
+        System.err.println("Autosave failed: " + e.getMessage());
     }
+}
 
 
    public void createDefaultLevel() {
@@ -130,6 +233,7 @@ public class GameMap {
 
         if (objectAtNextPosition == null || objectAtNextPosition instanceof Targets) {
             player.move(dx, dy);
+            writeToFile("autosave.txt");
         } else if (objectAtNextPosition instanceof Wall) {
             System.out.println("You can't move through walls!");
         } else if (objectAtNextPosition instanceof Boxes) {
@@ -142,6 +246,7 @@ public class GameMap {
                 Boxes boxToPush = (Boxes) objectAtNextPosition;
                 boxToPush.move(dx, dy);
                 player.move(dx, dy);
+                writeToFile("autosave.txt");
                 
                 if (objectBeyondBox instanceof Targets) {
                     System.out.println("Box placed on target!");

@@ -1,9 +1,11 @@
-com/sokobanigui/Player.class
 com/sokobanigui/GameObjects.class
-com/sokobanigui/Game.class
+com/sokobanigui/InputHandler.class
+com/sokobanigui/InvalidLevelFormatException.class
 com/sokobanigui/Targets.class
 com/sokobanigui/GameMap.class
+com/sokobanigui/Boxes.class
+com/sokobanigui/Player.class
+com/sokobanigui/Game.class
 com/sokobanigui/Movable.class
 com/sokobanigui/Wall.class
-com/sokobanigui/Boxes.class
 com/sokobanigui/Position.class
