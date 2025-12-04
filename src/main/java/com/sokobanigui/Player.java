@@ -32,10 +32,7 @@ public class Player extends GameObjects implements Movable{
         return position;
     }
 
-    @Override
-    public char getCharacter(){
-        return 'P';
-    }
+    
 
     @Override
     public void move(int dx, int dy) {
@@ -50,6 +47,18 @@ public class Player extends GameObjects implements Movable{
         }
     }
 
+     @Override
+    public char getCharacter(){
+        return 'P';
+    }
+    
+    // ADD THIS METHOD
+    @Override
+    public String getImageName() {
+        return "player.png";
+    }
+}
+
     
 
-}
+

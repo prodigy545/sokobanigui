@@ -1,22 +1,32 @@
 package com.sokobanigui;
 
 public class InputHandler {
-
-    public void fireMoveUp(GameMap map){
+    
+    private GameMap map;
+    private String levelPath;
+    
+    public InputHandler(GameMap map, String levelPath) {
+        this.map = map;
+        this.levelPath = levelPath;
+    }
+    
+    public void fireMoveUp() {
         map.movePlayer(0, -1);
     }
-
-    public void fireMoveDown(GameMap map){
+    
+    public void fireMoveDown() {
         map.movePlayer(0, 1);
     }
     
-    public void fireMoveRight(GameMap map){
-        map.movePlayer(1, 0);
-    }
-
-    public void fireMoveLeft(GameMap map){
+    public void fireMoveLeft() {
         map.movePlayer(-1, 0);
     }
-
+    
+    public void fireMoveRight() {
+        map.movePlayer(1, 0);
+    }
+    
+    public void fireRestart() {
+        map.restart(levelPath);
+    }
 }
-

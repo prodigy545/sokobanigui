@@ -15,6 +15,8 @@ public class GameMap {
     
     public List<GameObjects> staticGameObjects;
     public List<GameObjects> dynamiGameObjects;
+    private final List<GameEventListener> listeners = new ArrayList<>();
+
 
     int gridHeight;
     int gridWidth;
@@ -26,7 +28,21 @@ public class GameMap {
         dynamiGameObjects = new ArrayList<>();
     }
 
-   public void loadFromFile(String filename) {
+    public void addListener(GameEventListener l) { 
+    listeners.add(l); 
+}
+
+public void removeListener(GameEventListener l) { 
+    listeners.remove(l); 
+}
+
+private void emit(GameEvent e) { 
+    for (GameEventListener l : listeners) {
+        l.onEvent(e);
+    }
+}
+
+   public  void loadFromFile(String filename) {
     InputStream inputStream = getClass().getClassLoader().getResourceAsStream(filename);
 
 
@@ -62,16 +78,18 @@ public class GameMap {
                     playerCount++;
                 }
                 else if (c != '#' && c != 'T' && c != 'B' && c != ' ') {
-                    throw new InvalidLevelFormatException(
-                        "Invalid character '" + c + "'", y + 1, x + 1);
+                throw new InvalidLevelFormatException(
+                    "Invalid character '" + c + "'", y + 1, x + 1);
                 }
             }
-        }
+                }
         
         if (playerCount != 1) {
             throw new InvalidLevelFormatException(
-                "Must have exactly one player");
+                "Must have exactly one player.");
         }
+
+        
         
         staticGameObjects.clear();
         dynamiGameObjects.clear();
@@ -133,7 +151,7 @@ public void writeToFile(String filename){
             }
         }
         
-        // Step 4: Draw boxes
+        
         for (GameObjects obj : dynamiGameObjects) {
             if (obj instanceof Boxes) {
                 int x = obj.getPosition().getPositionX();
@@ -142,14 +160,14 @@ public void writeToFile(String filename){
             }
         }
         
-        // Step 5: Draw player
+        
         if (player != null) {
             int x = player.getPosition().getPositionX();
             int y = player.getPosition().getPositionY();
             grid[y][x] = 'P';
         }
         
-        // Step 6: Write grid to file
+        
         for (int y = 0; y < gridHeight; y++) {
             for (int x = 0; x < gridWidth; x++) {
                 writer.write(grid[y][x]);
@@ -221,43 +239,58 @@ public void writeToFile(String filename){
 
     
     public void movePlayer(int dx, int dy) {
-        if (player == null) return;
+    if (player == null) return;
+    
+    Position from = new Position(player.getPosition().getPositionX(), 
+                                  player.getPosition().getPositionY());
+    
+    int nextX = player.getPosition().getPositionX() + dx;
+    int nextY = player.getPosition().getPositionY() + dy;
+
+    GameObjects objectAtNextPosition = getObjectAt(nextX, nextY);
+
+    if (objectAtNextPosition == null || objectAtNextPosition instanceof Targets) {
+        player.move(dx, dy);
+        writeToFile("autosave.txt");
         
-        int nextX = player.getPosition().getPositionX() + dx;
-        int nextY = player.getPosition().getPositionY() + dy;
+        Position to = player.getPosition();
+        emit(new GameEvent(GameEventType.MOVE, from, to, null));
+        
+    } else if (objectAtNextPosition instanceof Wall) {
+        System.out.println("You can't move through walls!");
+        emit(new GameEvent(GameEventType.INVALID_MOVE, from, from, null));
+        
+    } else if (objectAtNextPosition instanceof Boxes) {
+        int positionBeyondBoxX = nextX + dx;
+        int positionBeyondBoxY = nextY + dy;
 
-        GameObjects objectAtNextPosition = getObjectAt(nextX, nextY);
+        GameObjects objectBeyondBox = getObjectAt(positionBeyondBoxX, positionBeyondBoxY);
 
-        if (objectAtNextPosition == null || objectAtNextPosition instanceof Targets) {
+        if (objectBeyondBox == null || objectBeyondBox instanceof Targets) {
+            Boxes boxToPush = (Boxes) objectAtNextPosition;
+            boxToPush.move(dx, dy);
             player.move(dx, dy);
             writeToFile("autosave.txt");
-        } else if (objectAtNextPosition instanceof Wall) {
-            System.out.println("You can't move through walls!");
-        } else if (objectAtNextPosition instanceof Boxes) {
-            int positionBeyondBoxX = nextX + dx;
-            int positionBeyondBoxY = nextY + dy;
-
-            GameObjects objectBeyondBox = getObjectAt(positionBeyondBoxX, positionBeyondBoxY);
-
-            if (objectBeyondBox == null || objectBeyondBox instanceof Targets) {
-                Boxes boxToPush = (Boxes) objectAtNextPosition;
-                boxToPush.move(dx, dy);
-                player.move(dx, dy);
-                writeToFile("autosave.txt");
-                
-                if (objectBeyondBox instanceof Targets) {
-                    System.out.println("Box placed on target!");
-                }
-            } else {
-                System.out.println("Box can't move that way.");
+            
+            Position to = player.getPosition();
+            emit(new GameEvent(GameEventType.PUSH, from, to, null));
+            
+            if (objectBeyondBox instanceof Targets) {
+                System.out.println("Box placed on target!");
             }
+        } else {
+            System.out.println("Box can't move that way.");
+            emit(new GameEvent(GameEventType.INVALID_MOVE, from, from, null));
         }
-        
-        draw();
-        checkWin();
-        
-        
     }
+    
+    draw();
+    
+    // Check win and emit event
+    if (checkWin()) {
+        emit(new GameEvent(GameEventType.WIN, null, null, "All boxes on targets"));
+    }
+}
 
     public GameObjects getObjectAt(int x, int y) {
         for (GameObjects currentObject : dynamiGameObjects) 
@@ -267,26 +300,62 @@ public void writeToFile(String filename){
         return null;
     }
 
-    public void checkWin(){
-        for (GameObjects gameObject : staticGameObjects){
-            if(gameObject instanceof Targets){
-                boolean hasBox = false;
-                for (GameObjects gameObject2 : dynamiGameObjects) {
-                    if (gameObject2 instanceof Boxes && gameObject2.isAt(gameObject.getPosition().getPositionX(), gameObject.getPosition().getPositionY())){
-                            hasBox = true;
-                            System.out.println("Box placed on target");
-                            
-                            break;
-                    }
-                }
-                if(!hasBox){
-                    return;
+   public boolean checkWin(){
+    for (GameObjects gameObject : staticGameObjects){
+        if(gameObject instanceof Targets){
+            boolean hasBox = false;
+            for (GameObjects gameObject2 : dynamiGameObjects) {
+                if (gameObject2 instanceof Boxes && 
+                    gameObject2.isAt(gameObject.getPosition().getPositionX(), 
+                                    gameObject.getPosition().getPositionY())){
+                    hasBox = true;
+                    break;
                 }
             }
+            if(!hasBox){
+                return false;
+            }
         }
-        System.out.println("You Win! All boxes are in target ");
-        System.exit(0);
     }
+    System.out.println("You Win! All boxes are on targets!");
+    return true;  
+}
 
+
+public GameObjects getTopObjectAt(int x, int y) {
+    // Check player first
+    if (player != null && player.isAt(x, y)) {
+        return player;
+    }
+    
+    // Check dynamic objects (boxes)
+    for (GameObjects obj : dynamiGameObjects) {
+        if (obj.isAt(x, y)) {
+            return obj;
+        }
+    }
+    
+    // Check static objects (walls, targets)
+    for (GameObjects obj : staticGameObjects) {
+        if (obj.isAt(x, y)) {
+            return obj;
+        }
+    }
+    
+    return null;
+}
+
+public int getWidth() {
+    return gridWidth;
+}
+
+public int getHeight() {
+    return gridHeight;
+}
+
+public void restart(String path) {
+    loadFromFile(path);
+    emit(new GameEvent(GameEventType.RESTART, null, null, path));
+}
     
 }

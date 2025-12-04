@@ -10,5 +10,10 @@ public class Targets extends GameObjects {
     public char getCharacter(){
         return 'T';
     }
-
+    
+    // ADD THIS METHOD
+    @Override
+    public String getImageName() {
+        return "target.png";
+    }
 }

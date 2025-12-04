@@ -10,7 +10,7 @@ public class Game {
         Scanner scanner = new Scanner(System.in);
         Scanner scannerfile = new Scanner(System.in);
         GameMap map = new GameMap();
-        InputHandler inputHandler = new InputHandler();
+        InputHandler inputHandler = new InputHandler(map, "level1.txt");
 
         map.loadFromFile("level1.txt");
         String currentfile = "";
@@ -28,10 +28,10 @@ public class Game {
             String c = input.toLowerCase();
 
             switch (c) {
-                case "w": inputHandler.fireMoveUp(map); break;
-                case "a": inputHandler.fireMoveLeft(map); break;
-                case "s": inputHandler.fireMoveDown(map); break;
-                case "d": inputHandler.fireMoveRight(map); break;
+                case "w": inputHandler.fireMoveUp(); break;
+                case "a": inputHandler.fireMoveLeft(); break;
+                case "s": inputHandler.fireMoveDown(); break;
+                case "d": inputHandler.fireMoveRight(); break;
                 case "load": {
                     System.out.println("input filename: "); String targetfile = scannerfile.nextLine(); currentfile = targetfile; map.loadFromFile(targetfile); map.draw();}
                 case "save": {

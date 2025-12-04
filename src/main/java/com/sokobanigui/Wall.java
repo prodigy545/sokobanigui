@@ -10,4 +10,10 @@ public class Wall extends GameObjects {
     public char getCharacter(){
         return '#';
     }
+    
+    // ADD THIS METHOD
+    @Override
+    public String getImageName() {
+        return "wall.png";
+    }
 }
